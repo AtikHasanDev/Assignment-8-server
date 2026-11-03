@@ -11,7 +11,7 @@ export function readConfig(env = process.env) {
   return {
     port: Number(env.PORT || 4000),
     uri: env.MONGODB_URI,
-    database: env.MONGODB_DB || "booknook",
+    database: env.MONGODB_DB || "Booknook",
     origin: env.CLIENT_ORIGIN,
     issuer: env.AUTH_ISSUER,
     audience: env.AUTH_AUDIENCE || "booknook-api",
