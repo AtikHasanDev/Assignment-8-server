@@ -6,3 +6,6 @@ coverage/
 *.log
 
 .vercel/
+
+.vercel
+.env*
