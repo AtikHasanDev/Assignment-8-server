@@ -1,150 +1,45 @@
-# BookNook API — Assignment-8-server
+# StudioSpace API
 
-Express API for the BookNook community library. Provides book management, authenticated borrowing and returns, and MongoDB-backed copy tracking.
-
-**Live API:** https://booknook-api-atik.vercel.app  
-**Live website:** https://booknook-atik.vercel.app  
-**Frontend repository:** https://github.com/AtikHasanDev/Assignment-8
-
-## Features
-
-- Public catalogue with newest-first ordering and optional result limits.
-- Protected book details and a user's own book collection.
-- Owner-only book creation, editing, and deletion.
-- Borrowing with a 14-day return date and per-user duplicate protection.
-- Transactional borrowing, returns, updates, and deletion checks.
-- JWT verification against the frontend's Better Auth JWKS endpoint.
-- Zod input validation, CORS, Helmet, rate limiting, and JSON error responses.
-- Repeatable starter catalogue seed and API integration tests.
-
-## Technology
-
-Node.js ES modules, Express 5, MongoDB, JOSE, Zod, Helmet, express-rate-limit, and CORS. Tests use Node's test runner, Supertest, and mongodb-memory-server.
+Express and MongoDB API for StudioSpace listings and reservations. The [Next.js client](https://github.com/AtikHasanDev/Assignment-8) handles sign-in, image uploads, and browser requests.
 
 ## Local setup
 
-Use Node.js 22 or newer and pnpm (pinned to 11.25.0; use a Node release supported by that package manager). MongoDB must be an Atlas cluster or a replica set because write workflows use transactions.
+1. Use Node.js 22 or newer with the pinned pnpm version. Run `pnpm install --frozen-lockfile`.
+2. Copy `.env.example` to `.env` and configure the values below.
+3. Run `pnpm seed:studios` to insert six demo studios. Re-running the seed preserves existing records.
+4. Run `pnpm dev` to start the API on port 4000, and start the Next.js client on port 3000.
 
-```sh
-git clone https://github.com/AtikHasanDev/Assignment-8-server.git
-cd Assignment-8-server
-pnpm install
-```
-
-Copy `.env.example` to `.env` and set:
-
-| Variable | Local example / purpose |
+| Variable | Local value or purpose |
 | --- | --- |
 | `PORT` | `4000` |
-| `MONGODB_URI` | MongoDB Atlas URI or `mongodb://localhost:27017/?replicaSet=rs0` |
-| `MONGODB_DB` | `booknook`; must match the frontend authentication database setting |
+| `MONGODB_URI` | Atlas connection string or a local MongoDB replica-set URI |
+| `MONGODB_DB` | Match the client’s database name |
 | `CLIENT_ORIGIN` | `http://localhost:3000` |
-| `AUTH_ISSUER` | `http://localhost:3000`; must match Better Auth's issuer |
-| `AUTH_AUDIENCE` | `booknook-api` |
+| `AUTH_ISSUER` | `http://localhost:3000` |
+| `AUTH_AUDIENCE` | `booknook-api` (the existing Better Auth JWT audience) |
 | `JWKS_URL` | `http://localhost:3000/api/auth/jwks` |
 
-```sh
-pnpm dev
-```
+## StudioSpace endpoints
 
-The API listens at http://localhost:4000. Run the frontend too for sign-in and authenticated requests.
-
-## Commands
-
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start with file watching and optional `.env` loading |
-| `pnpm start` | Start without file watching |
-| `pnpm seed` | Add eight starter books without replacing existing seed records |
-| `pnpm test` | Run API integration tests |
-
-The seed spans Fiction, Science, History, Kids, and Others. It uses upserts with insert-only values, so rerunning it does not reset availability or overwrite existing seeded books. Tests create an isolated in-memory MongoDB replica set and may download MongoDB binaries on the first run.
-
-## API routes
-
-Protected requests require `Authorization: Bearer <token>`.
-
-| Method | Route | Access | Purpose |
+| Method | Path | Access | Behavior |
 | --- | --- | --- | --- |
-| GET | `/books` | Public | List books, newest first |
-| GET | `/books?limit=6` | Public | Limit results; allowed range is 0–100, with 0 meaning no limit |
-| GET | `/books?mine=true` | Signed in | List books owned by the current user |
-| GET | `/books/:id` | Signed in | Read a book's details |
-| POST | `/books` | Signed in | Create a book |
-| PATCH | `/books/:id` | Owner | Update a book using the complete book input |
-| DELETE | `/books/:id` | Owner | Delete a book without active borrows |
-| GET | `/borrows` | Signed in | List the current user's borrows |
-| POST | `/borrows` | Signed in | Borrow an available book |
-| DELETE | `/borrows/:id` | Borrow owner | Return a book |
+| GET | `/api/studios` | Public | List newest studios, with optional `category` and `limit` filters |
+| GET | `/api/studios/:id` | Public | Read a studio’s details |
+| GET | `/api/studios/mine` | Signed in | List the host’s studios |
+| POST | `/api/studios` | Signed in | Create a studio with the signed-in host’s identity |
+| PATCH | `/api/studios/:id` | Host | Update supplied listing fields |
+| DELETE | `/api/studios/:id` | Host | Delete a listing |
+| GET | `/api/bookings` | Signed in | List the current user’s reservations |
+| POST | `/api/bookings` | Signed in | Request a future slot and reject overlaps with Confirmed bookings |
+| PATCH | `/api/bookings/:id/cancel` | Reservation owner | Change a Pending booking to Cancelled |
 
-Search and category filtering are handled by the frontend. The API always sorts catalogue results newest first.
+Booking creation accepts a `studioId` and ISO timestamps `startsAt` and `endsAt` with a timezone offset or UTC designator. New reservations start as Pending. Existing Confirmed bookings block overlapping requests for the same studio. Back-to-back slots are allowed.
 
-### Book input
+For protected calls, use the client’s same-origin `/api/studiospace` bridge. It obtains a short-lived JWT from Better Auth and forwards it in the `studiospace_token` cookie. Express verifies the signature, issuer, and audience. Ownership checks use the verified identity.
 
-```json
-{
-  "title": "A Test Story",
-  "author": "A Reader",
-  "category": "Fiction",
-  "image": "https://example.com/cover.jpg",
-  "description": "A book for the community library.",
-  "totalCopies": 3
-}
-```
+## Verification and deployment
 
-Ownership, timestamps, and availability are assigned by the server. Borrowing accepts:
-
-```json
-{ "bookId": "<MongoDB book ObjectId>" }
-```
-
-Returns use the borrow record's ID, not the book ID. Errors use a JSON `message` field; common responses include 400 for invalid input, 401 for authentication failures, 403 for ownership violations, 404 for missing records, 409 for availability conflicts, and 429 for rate limits.
-
-## Authentication and data integrity
-
-Better Auth runs in the frontend project; this API does not issue sessions or handle Google callbacks. It verifies EdDSA JWTs with the configured issuer, audience, and remote public keys. Identity and ownership come from the verified token rather than request-body fields.
-
-Borrowing decrements availability and inserts a borrow within one transaction. Returning removes the user's borrow and restores availability atomically. A unique user/book index prevents duplicate borrows. Owners cannot reduce total copies below the number borrowed or delete a book while copies are on loan.
-
-## Project structure
-
-```text
-app.js                    Lazy Express entry point for Vercel
-src/index.js              Local server entry point and shutdown handling
-src/runtime.js            Database, authentication, and route composition
-src/config.js             Environment configuration
-src/db.js                 MongoDB connection and indexes
-src/book-reads.js          Catalogue and detail routes
-src/book-writes.js         Book creation, updates, and deletion
-src/borrows.js             Borrow and return routes
-src/auth.js               JWT verification and authentication middleware
-src/validation.js         Request schemas
-src/errors.js             Error handling
-scripts/seed-catalogue.js  Repeatable starter data
-test/api.test.js          API integration tests
-```
-
-## Deploying on Vercel
-
-Import this repository as an Express project. The root `app.js` exports the application without opening a listening port and shares a database initialization promise across concurrent requests.
-
-Configure production environment variables:
-
-```text
-MONGODB_URI=<your MongoDB connection string>
-MONGODB_DB=<same database name as the frontend>
-CLIENT_ORIGIN=https://booknook-atik.vercel.app
-AUTH_ISSUER=https://booknook-atik.vercel.app
-AUTH_AUDIENCE=booknook-api
-JWKS_URL=https://booknook-atik.vercel.app/api/auth/jwks
-```
-
-Configure the frontend's `NEXT_PUBLIC_API_URL` as `https://booknook-api-atik.vercel.app`. Make sure MongoDB is reachable from Vercel and that the frontend's JWKS endpoint is accessible to the API. Redeploy after changing environment variables.
-
-The root `/` has no health route and returns 404; use `/books` to check catalogue connectivity:
-
-```sh
-curl https://booknook-api-atik.vercel.app/books
-```
-
-Never commit `.env` or database credentials.
+- Run `pnpm test` for the existing API integration suite. Its in-memory replica set may need to download MongoDB binaries on the first run.
+- Request `GET /api/studios?limit=6` to check the sample catalog, then use the client to test protected listing and booking flows.
+- Deploy the root `app.js` as the Express entry point on Vercel. Set `CLIENT_ORIGIN` and `AUTH_ISSUER` to the deployed client origin and point `JWKS_URL` to that origin’s Better Auth key endpoint.
+- Keep database credentials and provider secrets in environment variables.
