@@ -4,7 +4,7 @@ import { objectId } from "./validation.js";
 
 const publicFields = { ownerEmail: 0, ownerId: 0 };
 
-export function studioReads({ db }) {
+export function studioReads({ db, auth }) {
   const router = Router();
   const studios = db.collection("studios");
 
@@ -31,6 +31,15 @@ export function studioReads({ db }) {
       .toArray();
     res.json(results);
   });
+
+  router.get("/api/studios/mine", auth, async (req, res) => {
+    const listings = await studios
+      .find({ ownerId: req.user.id, ownerEmail: req.user.email })
+      .sort({ createdAt: -1, _id: -1 })
+      .toArray();
+    res.json(listings);
+  });
+
 
   router.get("/api/studios/:id", async (req, res) => {
     const studio = await studios.findOne(
