@@ -6,6 +6,7 @@ import { bookReads } from "./book-reads.js";
 import { bookWrites } from "./book-writes.js";
 import { borrowRoutes } from "./borrows.js";
 import { studioReads } from "./studio-reads.js";
+import { studioWrites } from "./studio-writes.js";
 export async function createRuntime(config = readConfig()) {
   const { client, db } = await connectDatabase(config);
   const context = {
@@ -16,7 +17,13 @@ export async function createRuntime(config = readConfig()) {
   };
   const app = createApp({
     config,
-    routes: [bookReads(context), bookWrites(context), borrowRoutes(context), studioReads(context)],
+    routes: [
+      bookReads(context),
+      bookWrites(context),
+      borrowRoutes(context),
+      studioReads(context),
+      studioWrites(context),
+    ],
   });
 
   return { app, client, config };
