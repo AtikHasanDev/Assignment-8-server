@@ -55,5 +55,27 @@ export function bookingRoutes({ db, auth }) {
     res.status(201).json({ ...booking, _id: insertedId });
   });
 
+  router.get("/api/bookings", auth, async (req, res) => {
+    const reservations = await bookings
+      .find({ userId: req.user.id })
+      .sort({ createdAt: -1, _id: -1 })
+      .toArray();
+    res.json(reservations);
+  });
+
+  router.patch("/api/bookings/:id/cancel", auth, async (req, res) => {
+    const owner = { _id: objectId(req.params.id), userId: req.user.id };
+    const booking = await bookings.findOneAndUpdate(
+      { ...owner, status: "Pending" },
+      { $set: { status: "Cancelled", cancelledAt: new Date() } },
+      { returnDocument: "after" },
+    );
+    if (booking) return res.json(booking);
+
+    const existing = await bookings.findOne(owner, { projection: { status: 1 } });
+    if (!existing) throw new HttpError(404, "This booking could not be found.");
+    throw new HttpError(409, "Only pending bookings can be cancelled.");
+  });
+
   return router;
 }

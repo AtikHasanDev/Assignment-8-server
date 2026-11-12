@@ -21,6 +21,7 @@ export async function createIndexes(db) {
     db
       .collection("bookings")
       .createIndex({ studioId: 1, status: 1, startsAt: 1, endsAt: 1 }),
+    db.collection("bookings").createIndex({ userId: 1, createdAt: -1, _id: -1 }),
     db.collection("books").createIndex({ createdAt: -1 }),
     db.collection("books").createIndex({ ownerId: 1, createdAt: -1 }),
     db
