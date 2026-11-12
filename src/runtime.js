@@ -1,7 +1,7 @@
 import { readConfig } from "./config.js";
 import { connectDatabase } from "./db.js";
 import { createApp } from "./app.js";
-import { createTokenVerifier, requireAuth } from "./auth.js";
+import { createTokenVerifier, requireAuth, requireStudioAuth } from "./auth.js";
 import { bookReads } from "./book-reads.js";
 import { bookWrites } from "./book-writes.js";
 import { borrowRoutes } from "./borrows.js";
@@ -10,21 +10,23 @@ import { studioWrites } from "./studio-writes.js";
 import { bookingRoutes } from "./bookings.js";
 export async function createRuntime(config = readConfig()) {
   const { client, db } = await connectDatabase(config);
+  const verify = createTokenVerifier(config);
   const context = {
     config,
     client,
     db,
-    auth: requireAuth(createTokenVerifier(config)),
+    auth: requireAuth(verify),
   };
+  const studioContext = { ...context, auth: requireStudioAuth(verify) };
   const app = createApp({
     config,
     routes: [
       bookReads(context),
       bookWrites(context),
       borrowRoutes(context),
-      studioReads(context),
-      studioWrites(context),
-      bookingRoutes(context),
+      studioReads(studioContext),
+      studioWrites(studioContext),
+      bookingRoutes(studioContext),
     ],
   });
 
