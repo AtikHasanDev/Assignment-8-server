@@ -13,6 +13,8 @@ export async function connectDatabase(config) {
 }
 export async function createIndexes(db) {
   await Promise.all([
+    db.collection("studios").createIndex({ createdAt: -1, _id: -1 }),
+    db.collection("studios").createIndex({ category: 1, createdAt: -1, _id: -1 }),
     db.collection("books").createIndex({ createdAt: -1 }),
     db.collection("books").createIndex({ ownerId: 1, createdAt: -1 }),
     db

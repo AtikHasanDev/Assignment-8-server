@@ -5,6 +5,7 @@ import { createTokenVerifier, requireAuth } from "./auth.js";
 import { bookReads } from "./book-reads.js";
 import { bookWrites } from "./book-writes.js";
 import { borrowRoutes } from "./borrows.js";
+import { studioReads } from "./studio-reads.js";
 export async function createRuntime(config = readConfig()) {
   const { client, db } = await connectDatabase(config);
   const context = {
@@ -15,7 +16,7 @@ export async function createRuntime(config = readConfig()) {
   };
   const app = createApp({
     config,
-    routes: [bookReads(context), bookWrites(context), borrowRoutes(context)],
+    routes: [bookReads(context), bookWrites(context), borrowRoutes(context), studioReads(context)],
   });
 
   return { app, client, config };
