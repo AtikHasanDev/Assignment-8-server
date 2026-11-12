@@ -33,5 +33,17 @@ export function studioWrites({ db, auth }) {
     res.json(studio);
   });
 
+  router.delete("/api/studios/:id", auth, async (req, res) => {
+    const id = objectId(req.params.id);
+    const { deletedCount } = await studios.deleteOne({
+      _id: id,
+      ownerId: req.user.id,
+      ownerEmail: req.user.email,
+    });
+    if (!deletedCount)
+      throw new HttpError(404, "This studio could not be found.");
+    res.status(204).end();
+  });
+
   return router;
 }
